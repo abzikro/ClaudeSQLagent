@@ -40,8 +40,9 @@ class Terminal:
             tries (int): The number of attempts to make when generating SQL queries (passed to NLtoSQL).
         """
         self.__connection = None
-        self.__claude_api_key = None
         self.__sql_retriever = None
+        self.__claude_client = None
+        self.__tries = tries
 
     def start_session(self):
         """
@@ -56,7 +57,7 @@ class Terminal:
         if not self.__setup_connection():
             return
 
-        if not Terminal.setup_api_key():
+        if not self.__setup_api_key():
             return
 
         self.__sql_retriever = NLtoSQL(tries=2)
@@ -73,9 +74,7 @@ class Terminal:
             elif question.lower() == 'help':
                 utils.nice_print(Terminal.HELP)
             else:
-                sql_codes, tables = self.__sql_retriever.apply(question)
-                if sql_codes:
-                    self.__handle_results(sql_codes, tables)
+                if self.__run_question(question):
                     utils.nice_print("Thank you for using my service.\n")
                 else:
                     utils.nice_print("There was a problem retrieving the query you have asked for from the database.\n"
@@ -138,8 +137,7 @@ class Terminal:
                 if retry.lower() != 'y':
                     return False
 
-    @staticmethod
-    def setup_api_key():
+    def __setup_api_key(self):
         """
         Prompt the user for a Claude API key, validate it, and set it as an environment variable.
         If a saved API key exists, use that instead of prompting the user.
@@ -159,8 +157,8 @@ class Terminal:
 
             try:
                 os.environ['ANTHROPIC_API_KEY'] = api_key
-                client = anthropic.Anthropic()
-                client.messages.create(
+                self.__claude_client = anthropic.Anthropic()
+                self.__claude_client.messages.create(
                     model="claude-3-5-sonnet-20240620",
                     max_tokens=10,
                     messages=[{"role": "user", "content": "Hello"}]
@@ -184,23 +182,43 @@ class Terminal:
                 if retry.lower() != 'y':
                     return False
 
+    def __run_question(self, question):
+        for i in range(self.__tries):
+            if not question:
+                utils.nice_print("I am sorry I wasn't able to help you, I hope to do better in the future.\n")
+                return True
+            sql_codes, tables, saved_code = self.__sql_retriever.apply(question)
+            if sql_codes:
+                self.__handle_results(tables)
+                user_satisfaction = input("Did this information answer your question? (y/n): ").lower()
+                if user_satisfaction == 'y':
+                    if not saved_code:
+                        to_save = input("Do you want me to provide the same tables"
+                                        " to similar question in the future? (y/n): ").lower()
+                        if to_save == 'y':
+                            self.__sql_retriever.save_question(question, sql_codes)
+                    return True
+                elif i+1 != self.__tries:
+                    explanation = input("Please explain what was wrong or what you expected to get: ")
+                    question = self.__handle_unsatisfactory_answer(question, explanation)
+            else:
+                return False
+        utils.nice_print("I am sorry I wasn't able to help you, I hope to do better in the future.\n")
+        return True
 
-    def __handle_results(self, SQLcodes, tables):
+    def __handle_results(self, tables):
         """
         Handle the results of a SQL query, displaying them and offering to save them.
 
         Args:
-            SQLcodes (List[str]): A list of SQL queries executed.
+            sql_codes (List[str]): A list of SQL queries executed.
             tables (List[Tuple]): A list of tuples containing table name, headers, and data.
         """
-        use_sql = input("A preview of the tables will be shortly given to you, would you like to get the sql code with them? (Y/N)")
-        use_sql = True if use_sql.lower() == 'y' else False
+
         utils.nice_print("Here is a preview of the tables I extracted (limited to 5 rows): \n")
         for i, table in enumerate(tables):
             utils.nice_print(f"{i + 1}. {table[0]}")
             print(tabulate(table[1].head(), headers='keys', tablefmt='pretty'))
-            if use_sql:
-                utils.nice_print("SQL code used:\n" + SQLcodes[i])
 
         question = input("Would you like to save any of these tables? (Y/N)\n")
         while question.lower() not in ['y', 'n']:
@@ -240,6 +258,29 @@ class Terminal:
                     print("Invalid table number(s). Please try again.\n")
             except ValueError:
                 print("Invalid input. Please enter numbers separated by commas or 'all'.\n")
+
+    def __handle_unsatisfactory_answer(self, question, explanation):
+        prompt = f"""The user asked the following question: "{question}"
+                The provided answer was not satisfactory. The user explained: "{explanation}"
+                Please reformulate the original question to address the user's concerns and expectations.
+                Return the reformulated answer inside <new_question> tags (VERY IMPORTANT)"""
+
+        response = self.__claude_client.messages.create(
+            model="claude-3-5-sonnet-20240620",
+            max_tokens=200,
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        new_question = utils.get_tags_info(response.content[0].text.strip(), "new_question")
+        utils.nice_print(f"I've reformulated your question as: '{new_question}'")
+        proceed = input("Should I proceed with this new question? (y/n): ").lower()
+
+        if proceed == 'y':
+            return new_question
+        else:
+            return ""
+
 
 if __name__ == '__main__':
     try:
