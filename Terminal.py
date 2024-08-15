@@ -52,7 +52,7 @@ class Terminal:
         get help, or exit the session.
         """
         utils.nice_print("Welcome to the SQL data retriever.\n"
-                         "First, we need to set up your connection and API key.\n")
+                         "First, we need to set up your connection and API key:")
 
         if not self.__setup_connection():
             return
@@ -63,7 +63,7 @@ class Terminal:
         self.__sql_retriever = NLtoSQL(tries=2)
         self.__sql_retriever.connect_to_server(self.__connection)
 
-        utils.nice_print("Setup complete! You can now start querying the database.\n"
+        utils.nice_print("\nSetup complete! You can now start querying the database.\n"
                          "Type 'help' for explanation on how to write queries for this bot.\n"
                          "Type 'exit' or 'quit' to leave the session.\n")
 
@@ -74,9 +74,7 @@ class Terminal:
             elif question.lower() == 'help':
                 utils.nice_print(Terminal.HELP)
             else:
-                if self.__run_question(question):
-                    utils.nice_print("Thank you for using my service.\n")
-                else:
+                if not self.__run_question(question):
                     utils.nice_print("There was a problem retrieving the query you have asked for from the database.\n"
                                      "Write 'help' to get a sense of what makes a request better.\n"
                                      "To clarify, requests might fail even if they are suitable so "
@@ -97,7 +95,7 @@ class Terminal:
             if os.path.exists(connection_file):
                 with open(connection_file, "r") as f:
                     connection_info = json.load(f)
-                utils.nice_print(f"""Found saved connection information by the name {connection_info["database"]}.""")
+                utils.nice_print(f"""Found saved database information by the name '{connection_info["database"]}'!""")
                 use_saved = input("Do you want to use the saved connection information? (y/n): ")
                 if use_saved.lower() != 'y':
                     connection_info = None
@@ -185,7 +183,6 @@ class Terminal:
     def __run_question(self, question):
         for i in range(self.__tries):
             if not question:
-                utils.nice_print("I am sorry I wasn't able to help you, I hope to do better in the future.\n")
                 return True
             sql_codes, tables, saved_code = self.__sql_retriever.apply(question)
             if sql_codes:
@@ -197,6 +194,7 @@ class Terminal:
                                         " to similar question in the future? (y/n): ").lower()
                         if to_save == 'y':
                             self.__sql_retriever.save_question(question, sql_codes)
+                    utils.nice_print("Thank you for using my service!\n")
                     return True
                 elif i+1 != self.__tries:
                     explanation = input("Please explain what was wrong or what you expected to get: ")
@@ -211,7 +209,6 @@ class Terminal:
         Handle the results of a SQL query, displaying them and offering to save them.
 
         Args:
-            sql_codes (List[str]): A list of SQL queries executed.
             tables (List[Tuple]): A list of tuples containing table name, headers, and data.
         """
 
@@ -226,7 +223,7 @@ class Terminal:
 
         if question.lower() == 'y':
             picked_tables = self.__pick_tables(tables)
-            saved_tables = utils.save_tables(picked_tables, "Tables")
+            saved_tables = utils.save_tables(picked_tables)
             question = input("Would you like an automated visualization of the saved tables? (Y/N)\n")
             while question.lower() not in ['y', 'n']:
                 question = input("Please answer only in (Y/N)\n")
@@ -279,6 +276,7 @@ class Terminal:
         if proceed == 'y':
             return new_question
         else:
+            utils.nice_print(f"I apologize that I wasn't able to help, try asking the question again.")
             return ""
 
 

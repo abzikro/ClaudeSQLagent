@@ -2,6 +2,8 @@ import textwrap as tw
 import re
 import os
 import sys
+import tkinter as tk
+from tkinter import filedialog
 
 
 def nice_print(text, width=120):
@@ -73,26 +75,43 @@ def ensure_dir(directory):
         os.makedirs(directory)
 
 
-def save_tables(tables, saving_location):
+
+def save_tables(tables):
     """
-    Save selected tables to CSV files.
+    Save selected tables to CSV files, prompting for a location for each table.
 
     Args:
         tables (List[Tuple]): A list of tuples containing table name, headers, and data.
-        saving_location (String): A string of the location to save the tables.
     """
     csv_paths = []
-    tables_dir = resource_path(saving_location)
-    ensure_dir(tables_dir)
+    # Create a root window
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+    root.attributes('-topmost', True)
 
     for table in tables:
-        csv_filename = f"{table[0]}.csv"
-        csv_path = os.path.join(tables_dir, csv_filename)
-        try:
-            table[1].to_csv(csv_path)
-            nice_print(f"""Table "{table[0]}" results saved to "{csv_path}" """)
-            csv_paths.append(csv_path)
-        except Exception as e:
-            nice_print(f"Error saving table {table[0]}: {str(e)}")
+        table_name, df = table
+
+        # Prompt user for save location with a custom message
+        file_path = filedialog.asksaveasfilename(
+            parent=root,
+            initialfile=f"{table_name}.csv",
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            title=f"Save table '{table_name}'"
+        )
+
+        if file_path:  # If a file path was selected (user didn't cancel)
+            try:
+                df.to_csv(file_path, index=False)
+                nice_print(f"""Table "{table_name}" saved to "{file_path}" """)
+                csv_paths.append(file_path)
+            except Exception as e:
+                nice_print(f"Error saving table {table_name}: {str(e)}")
+        else:
+            nice_print(f"Saving cancelled for table {table_name}")
+
+        # Destroy the root window
+    root.destroy()
 
     return csv_paths
