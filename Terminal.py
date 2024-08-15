@@ -230,7 +230,7 @@ class Terminal:
             if question.lower() == 'y':
                 from bokeh.plotting import figure
                 from autoviz import AutoViz_Class
-                figure(width=1200, height=900)
+                figure(width=1600, height=1200)
                 for i, table in enumerate(saved_tables):
                     df = pd.read_csv(table, index_col=0, parse_dates=True)
                     dir_path = utils.resource_path(table.split('.')[0])
@@ -239,7 +239,7 @@ class Terminal:
                         if utils.is_date_format(df[col]):
                             df[col] = pd.to_datetime(df[col], errors='coerce')
                     AV = AutoViz_Class()
-                    AV.AutoViz(filename="", dfte=df, chart_format='png', save_plot_dir=dir_path, verbose=2)
+                    AV.AutoViz(filename="", dfte=df, chart_format='bokeh', save_plot_dir=dir_path, verbose=2)
 
     def __pick_tables(self, tables):
         while True:
