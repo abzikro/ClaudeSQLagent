@@ -4,7 +4,7 @@ import os
 import sys
 import tkinter as tk
 from tkinter import filedialog
-
+from decimal import Decimal
 
 def nice_print(text, width=120):
     """
@@ -60,6 +60,19 @@ def resource_path(relative_path):
         base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
 
+def fix_decimal_values(data):
+    processed_result = []
+    for row in data:
+        processed_row = []
+        for value in row:
+            if isinstance(value, Decimal):
+                # Convert Decimal to float and format with 2 decimal places
+                processed_row.append('{:.2f}'.format(float(value)))
+            else:
+                processed_row.append(value)
+        processed_result.append(processed_row)
+    return processed_result
+
 def get_base_path():
     """Get the base path for the application, works both in development and when compiled"""
     if getattr(sys, 'frozen', False):
@@ -103,7 +116,7 @@ def save_tables(tables):
 
         if file_path:  # If a file path was selected (user didn't cancel)
             try:
-                df.to_csv(file_path, index=False)
+                df.to_csv(file_path, index=False, float_format='%.2f')
                 nice_print(f"""Table "{table_name}" saved to "{file_path}" """)
                 csv_paths.append(file_path)
             except Exception as e:

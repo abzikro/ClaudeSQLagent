@@ -5,7 +5,7 @@ from utils import resource_path
 
 class QuestionDatabase:
     def __init__(self):
-        self.db_file = resource_path("answered_questions.json")
+        self.db_file = resource_path("Data/answered_questions.json")
         self.questions = self.load_questions()
 
     def load_questions(self):

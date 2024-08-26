@@ -1,4 +1,6 @@
+import io
 import json
+import sys
 import pyodbc
 import utils
 import pandas as pd
@@ -7,6 +9,14 @@ from typing import List
 from tabulate import tabulate
 import os
 import anthropic
+from cryptography.fernet import Fernet
+import logging
+import warnings
+
+logging.getLogger('bokeh').setLevel(logging.ERROR)
+
+# Suppress warnings
+warnings.filterwarnings("ignore")
 
 
 class Terminal:
@@ -43,6 +53,7 @@ class Terminal:
         self.__sql_retriever = None
         self.__claude_client = None
         self.__tries = tries
+        self.__encryption_key = self.__get_or_create_key()
 
     def start_session(self):
         """
@@ -89,13 +100,14 @@ class Terminal:
         Returns:
             bool: True if connection was successfully established, False otherwise.
         """
-        connection_file = utils.resource_path("connection_info.json")
+        connection_file = utils.resource_path("Data/connection_info.json")
         connection_info = None
         while True:
             if os.path.exists(connection_file):
                 with open(connection_file, "r") as f:
-                    connection_info = json.load(f)
-                utils.nice_print(f"""Found saved database information by the name '{connection_info["database"]}'!""")
+                    encrypted_info = json.load(f)
+                    connection_info = {k: self.__decrypt(v) for k, v in encrypted_info.items()}
+                utils.nice_print(f"""Found saved database information for '{connection_info["database"]}'!""")
                 use_saved = input("Do you want to use the saved connection information? (y/n): ")
                 if use_saved.lower() != 'y':
                     connection_info = None
@@ -104,36 +116,52 @@ class Terminal:
                 connection_info = {
                     "server": input("Enter the SQL server address: "),
                     "database": input("Enter the database name: "),
-                    "username": input("Enter the username: "),
-                    "password": input("Enter the password: ")
+                    "port": input("Enter the port (leave blank for default): "),
+                    "use_windows_auth": input("Use Windows Authentication? (y/n): ").lower() == 'y'
                 }
+                if not connection_info["use_windows_auth"]:
+                    connection_info["username"] = input("Enter the username: ")
+                    connection_info["password"] = input("Enter the password: ")
 
-            try:
-                self.__connection = pyodbc.connect(
-                    'DRIVER={ODBC Driver 17 for SQL Server};'
-                    f'SERVER={connection_info["server"]};'
-                    f'DATABASE={connection_info["database"]};'
-                    f'UID={connection_info["username"]};'
-                    f'PWD={connection_info["password"]};'
-                )
-                utils.nice_print("Connection successful!")
+            drivers = [
+                '{ODBC Driver 17 for SQL Server}',
+                '{ODBC Driver 18 for SQL Server}',
+                '{SQL Server Native Client 11.0}',
+                '{SQL Server}'
+            ]
 
-                if not os.path.exists(connection_file):
-                    save_info = input("Would you like to save this connection information for future use? (y/n): ")
-                    if save_info.lower() == 'y':
-                        with open(connection_file, "w") as f:
-                            json.dump(connection_info, f)
-                        utils.nice_print("Connection information saved for future use.")
+            server = f"{connection_info['server']},{connection_info['port']}" if connection_info['port'] else \
+            connection_info['server']
 
-                return True
-            except pyodbc.Error as e:
-                utils.nice_print(f"Connection failed: {str(e)}")
-                if os.path.exists(connection_file):
-                    os.remove(connection_file)
-                    utils.nice_print("Removed invalid saved connection information.")
+            for driver in drivers:
+                try:
+                    if connection_info["use_windows_auth"]:
+                        conn_str = f'DRIVER={driver};SERVER={server};DATABASE={connection_info["database"]};Trusted_Connection=yes;'
+                    else:
+                        conn_str = f'DRIVER={driver};SERVER={server};DATABASE={connection_info["database"]};UID={connection_info["username"]};PWD={connection_info["password"]};'
+
+                    conn_str += "Encrypt=yes;TrustServerCertificate=yes"
+
+                    self.__connection = pyodbc.connect(conn_str, timeout=10)
+                    utils.nice_print(f"Connection successful using {driver}")
+                    break
+                except pyodbc.Error as e:
+                    utils.nice_print(f"Connection failed with {driver}")
+            else:
+                utils.nice_print("Could not connect using any available driver.")
                 retry = input("Would you like to try again? (y/n): ")
                 if retry.lower() != 'y':
                     return False
+
+            if self.__connection:
+                if not os.path.exists(connection_file):
+                    save_info = input("Would you like to save this connection information for future use? (y/n): ")
+                    if save_info.lower() == 'y':
+                        encrypted_info = {k: self.__encrypt(str(v)) for k, v in connection_info.items()}
+                        with open(connection_file, "w") as f:
+                            json.dump(encrypted_info, f)
+                        utils.nice_print("Encrypted connection information saved for future use.")
+                return True
 
     def __setup_api_key(self):
         """
@@ -143,12 +171,12 @@ class Terminal:
         Returns:
             bool: True if a valid API key was provided and set, False otherwise.
         """
-        api_key_file = utils.resource_path("claude_api_key.txt")
+        api_key_file = utils.resource_path("Data/claude_api_key.txt")
 
         while True:
             if os.path.exists(api_key_file):
                 with open(api_key_file, "r") as f:
-                    api_key = f.read().strip()
+                    api_key = self.__decrypt(f.read()).strip()
                 utils.nice_print("Found saved API key. Validating...")
             else:
                 api_key = input("Enter your Claude API key: ")
@@ -167,7 +195,7 @@ class Terminal:
                     save_key = input("Would you like to save this API key for future use? (y/n): ")
                     if save_key.lower() == 'y':
                         with open(api_key_file, "w") as f:
-                            f.write(api_key)
+                            f.write(self.__encrypt(str(api_key)))
                         utils.nice_print("API key saved for future use.")
 
                 return True
@@ -215,7 +243,7 @@ class Terminal:
         utils.nice_print("Here is a preview of the tables I extracted (limited to 5 rows): \n")
         for i, table in enumerate(tables):
             utils.nice_print(f"{i + 1}. {table[0]}")
-            print(tabulate(table[1].head(), headers='keys', tablefmt='pretty'))
+            print(tabulate(table[1].head(), headers='keys', tablefmt='pretty', floatfmt='.2f'))
 
         question = input("Would you like to save any of these tables? (Y/N)\n")
         while question.lower() not in ['y', 'n']:
@@ -228,18 +256,26 @@ class Terminal:
             while question.lower() not in ['y', 'n']:
                 question = input("Please answer only in (Y/N)\n")
             if question.lower() == 'y':
+                utils.nice_print("Saving Graphs...")
+                old_std = sys.stdout
+                sys.stdout = io.StringIO()
                 from bokeh.plotting import figure
                 from autoviz import AutoViz_Class
                 figure(width=1600, height=1200)
+                graphs_saving_massage = ""
                 for i, table in enumerate(saved_tables):
-                    df = pd.read_csv(table, index_col=0, parse_dates=True)
+                    df = pd.read_csv(table, parse_dates=True)
                     dir_path = utils.resource_path(table.split('.')[0])
                     utils.ensure_dir(dir_path)
                     for col in df.columns:
                         if utils.is_date_format(df[col]):
                             df[col] = pd.to_datetime(df[col], errors='coerce')
                     AV = AutoViz_Class()
-                    AV.AutoViz(filename="", dfte=df, chart_format='bokeh', save_plot_dir=dir_path, verbose=2)
+                    AV.AutoViz(filename="", dfte=df, chart_format='html', save_plot_dir=dir_path)
+                    graphs_saving_massage += f"Saved graph in {dir_path}.\n"
+                sys.stdout = old_std
+                utils.nice_print(graphs_saving_massage)
+
 
     def __pick_tables(self, tables):
         while True:
@@ -278,6 +314,25 @@ class Terminal:
         else:
             utils.nice_print(f"I apologize that I wasn't able to help, try asking the question again.")
             return ""
+
+    def __get_or_create_key(self):
+        key_path = utils.resource_path("Data/encryption_key.key")
+        if os.path.exists(key_path):
+            with open(key_path, "rb") as key_file:
+                return key_file.read()
+        else:
+            key = Fernet.generate_key()
+            with open(key_path, "wb") as key_file:
+                key_file.write(key)
+            return key
+
+    def __encrypt(self, data):
+        f = Fernet(self.__encryption_key)
+        return f.encrypt(data.encode()).decode()
+
+    def __decrypt(self, data):
+        f = Fernet(self.__encryption_key)
+        return f.decrypt(data.encode()).decode()
 
 
 if __name__ == '__main__':

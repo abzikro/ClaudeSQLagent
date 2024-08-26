@@ -222,10 +222,11 @@ class NLtoSQL:
             j = 0
             while j < len(sql_code):
                 cursor.execute(sql_code[j][0])
-                final_result = cursor.fetchall()
+                final_result = utils.fix_decimal_values(cursor.fetchall())
                 headers = [cursor.description[i][0] for i in range(len(cursor.description))]
                 final_result_data = [[item for item in sublist] for sublist in final_result]
-                data_tables.append((sql_code[j][1].strip(), pd.DataFrame(final_result_data, columns=headers)))
+                df = pd.DataFrame(final_result_data, columns=headers)
+                data_tables.append((sql_code[j][1].strip(), df))
                 j += 1
             return data_tables, True
         except Exception as e:
