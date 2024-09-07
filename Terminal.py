@@ -214,6 +214,8 @@ class Terminal:
                 return True
             sql_codes, tables, saved_code = self.__sql_retriever.apply(question)
             if sql_codes:
+                for code in sql_codes:
+                    print(code[0] + '\n')
                 self.__handle_results(tables)
                 user_satisfaction = input("Did this information answer your question? (y/n): ").lower()
                 if user_satisfaction == 'y':

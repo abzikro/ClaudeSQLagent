@@ -126,7 +126,7 @@ class NLtoSQL:
                 ).content[0].text
                 if "<error>" in table_picker_message:
                     nice_print('\n' + get_tags_info(table_picker_message, tag="error") + '\n')
-                    return None, None
+                    return None, None, None
                 table_picker_reasoning = get_tags_info(table_picker_message, tag="reasoning")
                 tables = get_tags_info(table_picker_message, tag="tables").strip('][ ').split(',')
                 tables_info = [{tables[i].strip("' "): self.__tables_dict[tables[i].strip("' ")]} for i in
@@ -139,7 +139,7 @@ class NLtoSQL:
         for i in range(self.__tries):
             coder_response = self.__claude_client.messages.create(
                 model="claude-3-5-sonnet-20240620",
-                max_tokens=3000,
+                max_tokens=4000,
                 temperature=0,
                 system="You are a microsoft SQL coder, please be sure that the code you generate works on microsoft SQL",
                 messages=[
@@ -149,7 +149,7 @@ class NLtoSQL:
             ).content[0].text
             if "<error>" in coder_response:
                 nice_print('\n' + get_tags_info(coder_response, tag="error") + '\n')
-                return None, None
+                return None, None, None
             columns_reasoning = get_tags_info(coder_response, tag="user_reasoning")
             SQLcodes = list(zip(get_tags_info(coder_response, tag="code").strip('][ ').split('##D##'),
                                 get_tags_info(coder_response, tag="tablename").strip('][ ').split(',')))

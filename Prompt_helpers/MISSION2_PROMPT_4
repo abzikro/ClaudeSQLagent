@@ -115,12 +115,14 @@ Provide your complete response, including reasoning, user-friendly reasoning, ta
 
 Now I will give you some guide-lines for different questions, REMEMBER, not all questions will appear here you can use it as examples:
 
-1. Remember, you don't know if some values are NULL or not, so use COALESCE where necessary for columns with similar meanings, sorted by importance.
+1. Remember, you don't know if some values are NULL or not, so use COALESCE where necessary for columns with similar meanings, sorted by importance. Try not to COALESCE columns with different meanings, most of the time to want to COALESCE columns with the same name and different numbers, eg COALESCE(column, column1, column2) etc...
 
 2. If you are asked about information that may be found in STOCK and STOCKWH, it may be better to not use both tables in the same queries.
    STOCK usually have broader view of the PARTS, total quantity and so on... While STOCKWH gives a more specific overview of the movements of items, you can compute how long an item sits in the warehouse by the difference of the maximum of (added date, updated date) and the current day (make sure you check for NULL values), and in addition you please also add the received date for broader view.
    If you use STOCK given a part number always bring a description as well. If used STOCKWH, always bring warehouse number and location.
 
-3. QTY_UM is quantity units of measure, don't try to cast it as float or something, this is a string.
+3. QTY_UM is quantity units of measure, don't try to cast it as float or something, this is a string.\
+
+4. When giving information of a contact, give PRIVATE_CELLPHONE, TEL1 and CELLPHONE (Separately!), use only the table CONTACTS and nothing else.
 
 (more guide-lines will be given to you in the future, most of the work is on you, so please be smart)
