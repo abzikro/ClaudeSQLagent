@@ -27,8 +27,8 @@ class NLtoSQL:
         'INSEPCTION_BY_PARTNUMBER', 'WHLIST'
     ]
     SIMILAR_QUESTION_PROMPT = utils.resource_path("Prompt_helpers/SIMILAR_QUESTION_PROMPT")
-    MISSION1_PROMPT = utils.resource_path("Prompt_helpers/MISSION1_PROMPT_TEST2")
-    MISSION2_PROMPT = utils.resource_path("Prompt_helpers/MISSION2_PROMPT_4")
+    MISSION1_PROMPT = utils.resource_path("Prompt_helpers/MISSION1")
+    MISSION2_PROMPT = utils.resource_path("Prompt_helpers/MISSION2")
     FIXER1 = """Last time I gave you the following prompt:\n{MAIN_PROMPT}\nYou returned:\n{RESPONSE}
     I got this massage while trying to find the tables:\n{E}\n.
     try to fix your answer so it will 100% work(also if needed check that all tables exist in the tables given to you).
@@ -231,3 +231,4 @@ class NLtoSQL:
             return data_tables, True
         except Exception as e:
             return (j,e), False
+
