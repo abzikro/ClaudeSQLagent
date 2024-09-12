@@ -34,14 +34,17 @@ SQL Data Retriever is an advanced application that allows users to query SQL dat
 
 ## Setup
 
-1. Install the required Python packages:
+1. Clone this repository:
    ```
-   pip install pyodbc pandas anthropic cryptography tabulate bokeh autoviz
+   git clone https://github.com/abzikro/PentagonSQLproject.git
    ```
+2. Install the required dependencies:
+   ```
+   pip install -r requirements.txt
 
-2. Ensure you have the necessary ODBC drivers installed for your SQL server.
+3. Ensure you have the necessary ODBC drivers installed for your SQL server.
 
-3. Set up your Claude API key from Anthropic.
+4. Set up your Claude API key from Anthropic.
 
 ## Usage
 
