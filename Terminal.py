@@ -254,29 +254,6 @@ class Terminal:
         if question.lower() == 'y':
             picked_tables = self.__pick_tables(tables)
             saved_tables = utils.save_tables(picked_tables)
-            question = input("Would you like an automated visualization of the saved tables? (Y/N)\n")
-            while question.lower() not in ['y', 'n']:
-                question = input("Please answer only in (Y/N)\n")
-            if question.lower() == 'y':
-                utils.nice_print("Saving Graphs...")
-                old_std = sys.stdout
-                sys.stdout = io.StringIO()
-                from bokeh.plotting import figure
-                from autoviz import AutoViz_Class
-                figure(width=1600, height=1200)
-                graphs_saving_massage = ""
-                for i, table in enumerate(saved_tables):
-                    df = pd.read_csv(table, parse_dates=True)
-                    dir_path = utils.resource_path(table.split('.')[0])
-                    utils.ensure_dir(dir_path)
-                    for col in df.columns:
-                        if utils.is_date_format(df[col]):
-                            df[col] = pd.to_datetime(df[col], errors='coerce')
-                    AV = AutoViz_Class()
-                    AV.AutoViz(filename="", dfte=df, chart_format='html', save_plot_dir=dir_path)
-                    graphs_saving_massage += f"Saved graph in {dir_path}.\n"
-                sys.stdout = old_std
-                utils.nice_print(graphs_saving_massage)
 
 
     def __pick_tables(self, tables):

@@ -29,8 +29,6 @@ SQL Data Retriever is an advanced application that allows users to query SQL dat
   - anthropic
   - cryptography
   - tabulate
-  - bokeh
-  - autoviz
 
 ## Setup
 
@@ -59,7 +57,7 @@ SQL Data Retriever is an advanced application that allows users to query SQL dat
 
 4. The system will interpret your question, generate SQL queries, and return the relevant data.
 
-5. You can save query results and generate visualizations as needed.
+5. You can save query results as needed.
 
 ## How It Works
 
@@ -73,7 +71,7 @@ SQL Data Retriever is an advanced application that allows users to query SQL dat
 
 5. **Query Execution**: The system executes the generated SQL queries on the connected database.
 
-6. **Result Presentation**: Query results are presented to the user, with options for saving and visualization.
+6. **Result Presentation**: Query results are presented to the user, with options for saving.
 
 ## Security
 
